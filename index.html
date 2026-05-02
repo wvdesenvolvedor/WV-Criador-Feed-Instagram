@@ -3,13 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WV Criador de Vídeo Feed Instagram</title>
+<title>WV Criador de Vídeo Feed Instagram - V6 Slideshow 10 Fotos</title>
 <style>
     *{box-sizing:border-box}
     body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#0b1220;color:#f9fafb}
     header{padding:14px 12px;background:#07101f;position:sticky;top:0;z-index:5;border-bottom:1px solid #243244}
     header h1{font-size:18px;margin:0;line-height:1.25;text-align:center;width:100%}
-    .pill{display:inline-block;background:#0f172a;padding:4px 8px;border-radius:999px;font-size:12px;margin-top:6px;color:#cbd5e1}
     .wrap{padding:12px;max-width:760px;margin:0 auto}
     .card{background:#1f2937;border:1px solid #334155;border-radius:14px;padding:12px;margin-bottom:12px;box-shadow:0 6px 20px rgba(0,0,0,.22)}
     .card h2{font-size:16px;margin:0 0 10px 0}
@@ -29,6 +28,7 @@
     .status{font-size:13px;color:#bfdbfe;background:#0b1220;padding:10px;border-radius:10px;border:1px solid #334155;white-space:pre-wrap;min-height:45px}
     progress{width:100%;height:18px;margin-top:10px}
     .small{font-size:12px;color:#cbd5e1;line-height:1.35}
+    .listBox{font-size:12px;color:#cbd5e1;background:#0b1220;padding:10px;border-radius:10px;border:1px solid #334155;min-height:32px;white-space:pre-wrap}
 </style>
 </head>
 <body>
@@ -52,6 +52,13 @@
         <label>Foto principal (layout só foto)</label>
         <input id="fotoPrincipalFile" type="file" accept="image/*">
 
+        <label>Áudio opcional para juntar com foto / slideshow</label>
+        <input id="audioFile" type="file" accept="audio/*">
+
+        <label>Até 10 fotos para slideshow</label>
+        <input id="fotosSlideFile" type="file" accept="image/*" multiple>
+        <div id="listaFotos" class="listBox"></div>
+
         <div class="row">
             <button class="btn btn-red" onclick="limparVideo()">🗑 Tirar vídeo</button>
             <button class="btn btn-red" onclick="limparLogo()">🗑 Tirar logo</button>
@@ -59,6 +66,10 @@
         <div class="row">
             <button class="btn btn-red" onclick="limparFoto()">🗑 Tirar foto lateral</button>
             <button class="btn btn-red" onclick="limparFotoPrincipal()">🗑 Tirar foto principal</button>
+        </div>
+        <div class="row">
+            <button class="btn btn-red" onclick="limparAudio()">🗑 Tirar áudio</button>
+            <button class="btn btn-red" onclick="limparFotosSlide()">🗑 Tirar fotos do slideshow</button>
         </div>
 
         <div class="row">
@@ -106,6 +117,13 @@
             <option value="video_inteiro">video_inteiro - vídeo normal embaixo</option>
             <option value="foto_video">foto_video - foto esquerda + vídeo direita</option>
             <option value="so_foto">so_foto - só a foto com legenda em cima</option>
+            <option value="slideshow_fotos">slideshow_fotos - até 10 fotos com áudio</option>
+        </select>
+
+        <label>Ajuste da foto</label>
+        <select id="ajusteFoto">
+            <option value="foto_inteira">foto_inteira - ajustar no espaço sem cortar</option>
+            <option value="cortar_foto">cortar_foto - preencher tudo cortando bordas</option>
         </select>
 
         <label>Ajuste do vídeo</label>
@@ -116,15 +134,26 @@
             <option value="zoom_in">zoom_para_frente</option>
         </select>
 
-        <label>FPS do vídeo</label>
-        <select id="fps">
-            <option value="24">24 FPS - recomendado</option>
-            <option value="30">30 FPS</option>
-        </select>
+        <div class="row">
+            <div>
+                <label>FPS do vídeo</label>
+                <select id="fps">
+                    <option value="24">24 FPS - recomendado</option>
+                    <option value="30">30 FPS</option>
+                </select>
+            </div>
+            <div>
+                <label>Transição das fotos</label>
+                <select id="transicaoFotos">
+                    <option value="fade">fade suave</option>
+                    <option value="corte">corte direto</option>
+                </select>
+            </div>
+        </div>
 
         <p class="small">
-            Dica: no layout <b>so_foto</b>, use o botão laranja para baixar a imagem PNG pronta para o feed.
-            O botão verde continua gerando vídeo quando você quiser.
+            Dica: no layout <b>slideshow_fotos</b>, escolha até 10 fotos + um áudio.
+            O programa reparte o tempo do áudio entre as fotos e faz a transição automaticamente.
         </p>
     </section>
 
@@ -154,11 +183,17 @@ let videoURL = null;
 let logoURL = null;
 let fotoURL = null;
 let fotoPrincipalURL = null;
+let audioURL = null;
 
 let logoImg = null;
 let fotoImg = null;
 let fotoPrincipalImg = null;
+let audioEl = null;
 let gravando = false;
+
+let slideFotos = []; // [{url,name,img}]
+let renderElapsed = null;
+let renderDuration = null;
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
@@ -166,12 +201,8 @@ const video = document.getElementById("video");
 const statusEl = document.getElementById("status");
 const prog = document.getElementById("prog");
 
-function log(msg){
-    statusEl.textContent = msg;
-}
-function fileToURL(file){
-    return URL.createObjectURL(file);
-}
+function log(msg){ statusEl.textContent = msg; }
+function fileToURL(file){ return URL.createObjectURL(file); }
 function arquivoParaDataURL(file){
     return new Promise((resolve,reject)=>{
         const reader = new FileReader();
@@ -179,6 +210,14 @@ function arquivoParaDataURL(file){
         reader.onerror = reject;
         reader.readAsDataURL(file);
     });
+}
+function atualizarListaFotos(){
+    const box = document.getElementById("listaFotos");
+    if(slideFotos.length === 0){
+        box.textContent = "Nenhuma foto do slideshow selecionada.";
+        return;
+    }
+    box.textContent = slideFotos.map((f,i)=> `${i+1}. ${f.name}`).join("\n");
 }
 
 document.getElementById("videoFile").addEventListener("change", e => {
@@ -224,7 +263,36 @@ document.getElementById("fotoPrincipalFile").addEventListener("change", e => {
     fotoPrincipalImg.src = fotoPrincipalURL;
 });
 
-["perfil","texto","corFundo","corLetra","alturaTopo","tamFonte","layoutConteudo","modoVideo","fps"].forEach(id=>{
+document.getElementById("audioFile").addEventListener("change", e => {
+    const f = e.target.files[0];
+    if(!f) return;
+    if(audioURL) URL.revokeObjectURL(audioURL);
+    audioURL = fileToURL(f);
+    audioEl = new Audio();
+    audioEl.src = audioURL;
+    audioEl.preload = "auto";
+    audioEl.onloadedmetadata = () => {
+        const dur = audioEl.duration ? Math.round(audioEl.duration) : 0;
+        log("Áudio carregado. Duração aproximada: " + dur + " segundos.");
+    };
+});
+
+document.getElementById("fotosSlideFile").addEventListener("change", async e => {
+    const files = Array.from(e.target.files || []).slice(0, 10);
+    slideFotos = [];
+    for(const f of files){
+        const url = fileToURL(f);
+        const img = new Image();
+        img.src = url;
+        await new Promise(resolve => { img.onload = resolve; img.onerror = resolve; });
+        slideFotos.push({url, name: f.name, img});
+    }
+    atualizarListaFotos();
+    atualizarPreview();
+    log(slideFotos.length + " foto(s) carregada(s) para o slideshow.");
+});
+
+["perfil","texto","corFundo","corLetra","alturaTopo","tamFonte","layoutConteudo","ajusteFoto","modoVideo","fps","transicaoFotos"].forEach(id=>{
     document.getElementById(id).addEventListener("input", atualizarPreview);
 });
 
@@ -253,13 +321,15 @@ async function salvarConfiguracao(){
             alturaTopo: document.getElementById("alturaTopo").value,
             tamFonte: document.getElementById("tamFonte").value,
             layoutConteudo: document.getElementById("layoutConteudo").value,
+            ajusteFoto: document.getElementById("ajusteFoto").value,
             modoVideo: document.getElementById("modoVideo").value,
             fps: document.getElementById("fps").value,
+            transicaoFotos: document.getElementById("transicaoFotos").value,
             logoData: logoData
         };
         localStorage.setItem("wv_feed_config", JSON.stringify(config));
         if(logoData) localStorage.setItem("wv_logo_data", logoData);
-        log("Configuração salva no navegador. A logo também foi salva para reutilizar.");
+        log("Configuração salva no navegador. A logo também foi salva.");
         alert("Configuração salva com sucesso!");
     }catch(e){
         alert("Erro ao salvar configuração: " + e.message);
@@ -281,8 +351,10 @@ function carregarConfiguracao(){
         document.getElementById("alturaTopo").value = config.alturaTopo || "260";
         document.getElementById("tamFonte").value = config.tamFonte || "110";
         document.getElementById("layoutConteudo").value = config.layoutConteudo || "video_inteiro";
+        document.getElementById("ajusteFoto").value = config.ajusteFoto || "foto_inteira";
         document.getElementById("modoVideo").value = config.modoVideo || "contain";
         document.getElementById("fps").value = config.fps || "24";
+        document.getElementById("transicaoFotos").value = config.transicaoFotos || "fade";
 
         const logoData = config.logoData || localStorage.getItem("wv_logo_data") || "";
         if(logoData){
@@ -292,7 +364,7 @@ function carregarConfiguracao(){
             logoImg.src = logoData;
         }
         atualizarPreview();
-        log("Configuração carregada. Logo reaproveitada se estava salva.");
+        log("Configuração carregada.");
     }catch(e){
         alert("Erro ao carregar configuração: " + e.message);
     }
@@ -330,6 +402,21 @@ function limparFotoPrincipal(){
     fotoPrincipalImg = null;
     atualizarPreview();
     log("Foto principal removida.");
+}
+function limparAudio(){
+    document.getElementById("audioFile").value = "";
+    if(audioEl){ try{ audioEl.pause(); }catch(e){} audioEl = null; }
+    if(audioURL) URL.revokeObjectURL(audioURL);
+    audioURL = null;
+    log("Áudio removido.");
+}
+function limparFotosSlide(){
+    document.getElementById("fotosSlideFile").value = "";
+    for(const f of slideFotos){ try{ URL.revokeObjectURL(f.url); }catch(e){} }
+    slideFotos = [];
+    atualizarListaFotos();
+    atualizarPreview();
+    log("Fotos do slideshow removidas.");
 }
 
 function drawRoundImage(img, x, y, size){
@@ -403,11 +490,8 @@ function drawHeader(){
     const xLogo = 38;
     const yLogo = Math.max(18, Math.floor(headerH*0.12));
 
-    if(logoImg){
-        drawRoundImage(logoImg, xLogo, yLogo, logoSize);
-    }else{
-        drawDefaultLogo(xLogo, yLogo, logoSize);
-    }
+    if(logoImg) drawRoundImage(logoImg, xLogo, yLogo, logoSize);
+    else drawDefaultLogo(xLogo, yLogo, logoSize);
 
     const xText = xLogo + logoSize + 20;
     const yName = yLogo + 2;
@@ -431,7 +515,6 @@ function drawHeader(){
         ctx.fillText(line, xText, y);
         y += calc.lineHeight;
     }
-
     return headerH;
 }
 
@@ -460,8 +543,30 @@ function drawMidiaCover(img, x, y, w, h, mode){
     else dy = y + (h - dh)/2;
     ctx.drawImage(img, dx, dy, dw, dh);
 }
+function drawFotoAjustada(img, x, y, w, h, alpha=1){
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    const ajuste = document.getElementById("ajusteFoto").value;
+    if(ajuste === "cortar_foto") drawMidiaCover(img, x, y, w, h, "cover_head");
+    else drawMidiaContain(img, x, y, w, h, "#ffffff");
+    ctx.restore();
+}
+function getSlideInfo(elapsed, duration){
+    const count = Math.max(1, slideFotos.length);
+    const transicaoTipo = document.getElementById("transicaoFotos").value;
+    const tempoPorFoto = duration / count;
+    const idx = Math.min(count - 1, Math.floor(elapsed / tempoPorFoto));
+    const local = elapsed - idx * tempoPorFoto;
+    const transDur = Math.min(0.45, tempoPorFoto * 0.22);
+    let alphaNext = 0;
+    let nextIdx = idx + 1;
+    if(transicaoTipo === "fade" && nextIdx < count && local > tempoPorFoto - transDur){
+        alphaNext = Math.min(1, (local - (tempoPorFoto - transDur)) / transDur);
+    }
+    return {idx, nextIdx, alphaNext};
+}
 
-function drawConteudo(headerH){
+function drawConteudo(headerH, elapsed=null, duration=null){
     const layout = document.getElementById("layoutConteudo").value;
     const mode = document.getElementById("modoVideo").value;
     const areaX = 0;
@@ -472,9 +577,33 @@ function drawConteudo(headerH){
     ctx.fillStyle = "#000";
     ctx.fillRect(areaX, areaY, areaW, areaH);
 
+    if(layout === "slideshow_fotos"){
+        if(slideFotos.length === 0){
+            ctx.fillStyle="#777";
+            ctx.fillRect(areaX, areaY, areaW, areaH);
+            ctx.fillStyle="#fff";
+            ctx.font="bold 50px Arial";
+            ctx.textAlign="center";
+            ctx.textBaseline="middle";
+            ctx.fillText("SLIDESHOW DE FOTOS", OUT_W/2, areaY + areaH/2 - 20);
+            ctx.font="28px Arial";
+            ctx.fillText("Selecione até 10 fotos", OUT_W/2, areaY + areaH/2 + 30);
+            return;
+        }
+        const dur = duration || Math.max(3, slideFotos.length * 2.5);
+        const el = elapsed || 0;
+        const info = getSlideInfo(el, dur);
+        const imgAtual = slideFotos[info.idx]?.img;
+        if(imgAtual) drawFotoAjustada(imgAtual, areaX, areaY, areaW, areaH, 1);
+        if(info.alphaNext > 0 && slideFotos[info.nextIdx]?.img){
+            drawFotoAjustada(slideFotos[info.nextIdx].img, areaX, areaY, areaW, areaH, info.alphaNext);
+        }
+        return;
+    }
+
     if(layout === "so_foto"){
         if(fotoPrincipalImg){
-            drawMidiaContain(fotoPrincipalImg, areaX, areaY, areaW, areaH, "#ffffff");
+            drawFotoAjustada(fotoPrincipalImg, areaX, areaY, areaW, areaH, 1);
         }else{
             ctx.fillStyle="#777";
             ctx.fillRect(areaX, areaY, areaW, areaH);
@@ -493,7 +622,7 @@ function drawConteudo(headerH){
         const rightW = areaW - leftW - sep;
 
         if(fotoImg){
-            drawMidiaContain(fotoImg, areaX, areaY, leftW, areaH, "#ffffff");
+            drawFotoAjustada(fotoImg, areaX, areaY, leftW, areaH, 1);
         }else{
             ctx.fillStyle="#777";
             ctx.fillRect(areaX, areaY, leftW, areaH);
@@ -537,19 +666,28 @@ function drawConteudo(headerH){
     else drawMidiaCover(video, areaX, areaY, areaW, areaH, mode);
 }
 
-function desenharFrame(){
+function desenharFrame(elapsed=null, duration=null){
     ctx.clearRect(0,0,OUT_W,OUT_H);
     const headerH = drawHeader();
-    drawConteudo(headerH);
+    drawConteudo(headerH, elapsed, duration);
 }
 function atualizarPreview(){
-    desenharFrame();
+    desenharFrame(0, slideFotos.length > 0 ? Math.max(3, slideFotos.length * 2.5) : null);
 }
 
 async function gerarVideo(){
     const layout = document.getElementById("layoutConteudo").value;
-    if(layout !== "so_foto" && !videoURL){
+
+    if(layout !== "so_foto" && layout !== "slideshow_fotos" && !videoURL){
         alert("Escolha um vídeo primeiro.");
+        return;
+    }
+    if(layout === "so_foto" && !fotoPrincipalImg){
+        alert("Para usar so_foto, escolha uma foto principal.");
+        return;
+    }
+    if(layout === "slideshow_fotos" && slideFotos.length === 0){
+        alert("Escolha até 10 fotos para o slideshow.");
         return;
     }
 
@@ -560,8 +698,23 @@ async function gerarVideo(){
     const fps = parseInt(document.getElementById("fps").value || "24");
     const stream = canvas.captureStream(fps);
 
-    const layoutSoFoto = (layout === "so_foto");
-    if(!layoutSoFoto){
+    // Áudio para foto única ou slideshow
+    if((layout === "so_foto" || layout === "slideshow_fotos") && audioEl && audioURL){
+        try{
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const source = audioCtx.createMediaElementSource(audioEl);
+            const dest = audioCtx.createMediaStreamDestination();
+            source.connect(dest);
+            source.connect(audioCtx.destination);
+            dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+        }catch(e){
+            console.warn("Áudio da foto/slideshow não capturado:", e);
+            log("Aviso: o navegador não deixou juntar o áudio. Será gerado sem áudio.");
+        }
+    }
+
+    // Áudio original do vídeo
+    if(layout === "video_inteiro" || layout === "foto_video"){
         try{
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const source = audioCtx.createMediaElementSource(video);
@@ -570,7 +723,7 @@ async function gerarVideo(){
             source.connect(audioCtx.destination);
             dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
         }catch(e){
-            console.warn("Áudio não capturado:", e);
+            console.warn("Áudio do vídeo não capturado:", e);
         }
     }
 
@@ -586,7 +739,6 @@ async function gerarVideo(){
     recorder.ondataavailable = e => {
         if(e.data && e.data.size) chunks.push(e.data);
     };
-
     recorder.onstop = () => {
         const blob = new Blob(chunks, {type:mime});
         const ext = mime.includes("mp4") ? "mp4" : "webm";
@@ -606,17 +758,38 @@ async function gerarVideo(){
 
     recorder.start(1000);
 
-    if(layoutSoFoto){
-        const dur = 5.0;
+    if(layout === "so_foto" || layout === "slideshow_fotos"){
+        let dur = 5.0;
+        const isSlide = layout === "slideshow_fotos";
+
+        if(audioEl && audioURL){
+            try{
+                audioEl.currentTime = 0;
+                audioEl.volume = 1;
+                await audioEl.play();
+                dur = audioEl.duration && isFinite(audioEl.duration) ? audioEl.duration : dur;
+                log(isSlide ? "Gerando slideshow com áudio..." : "Gerando foto + áudio...");
+            }catch(e){
+                console.warn("Não consegui tocar o áudio:", e);
+                log("Não consegui iniciar o áudio. Gerando sem áudio.");
+                dur = isSlide ? Math.max(3, slideFotos.length * 2.5) : 5.0;
+            }
+        }else{
+            dur = isSlide ? Math.max(3, slideFotos.length * 2.5) : 5.0;
+            log(isSlide ? "Gerando slideshow sem áudio..." : "Gerando vídeo curto com foto sem áudio...");
+        }
+
         const start = performance.now();
         function loopFoto(now){
             if(!gravando) return;
-            desenharFrame();
             const elapsed = (now - start) / 1000;
+            desenharFrame(elapsed, dur);
             const pct = Math.max(0, Math.min(100, Math.floor((elapsed / dur) * 100)));
             prog.value = pct;
-            log(`Gerando vídeo da foto... ${pct}%`);
-            if(elapsed >= dur){
+            log(isSlide ? `Gerando slideshow... ${pct}%` : `Gerando vídeo da foto... ${pct}%`);
+
+            if(elapsed >= dur || (audioEl && audioURL && audioEl.ended)){
+                try{ if(audioEl) audioEl.pause(); }catch(e){}
                 recorder.stop();
                 gravando = false;
                 return;
@@ -635,11 +808,11 @@ async function gerarVideo(){
     }).catch(()=>{});
 
     await video.play();
-
     const dur = video.duration || 1;
+
     function loopVideo(){
         if(!gravando) return;
-        desenharFrame();
+        desenharFrame(video.currentTime, dur);
         const pct = Math.max(0, Math.min(100, Math.floor((video.currentTime / dur) * 100)));
         prog.value = pct;
         log(`Gerando vídeo... ${pct}%`);
@@ -663,6 +836,7 @@ function baixarCapa(){
     a.click();
 }
 
+atualizarListaFotos();
 atualizarPreview();
 </script>
 </body>
