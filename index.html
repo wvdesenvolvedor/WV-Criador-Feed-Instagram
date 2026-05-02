@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WV Criador de Vídeo Feed Instagram</title>
+<style>
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#0b1220;color:#f9fafb}
+    header{padding:14px 12px;background:#07101f;position:sticky;top:0;z-index:5;border-bottom:1px solid #243244}
+    header h1{font-size:18px;margin:0;line-height:1.25;text-align:center;width:100%}
+    .pill{display:inline-block;background:#0f172a;padding:4px 8px;border-radius:999px;font-size:12px;margin-top:6px;color:#cbd5e1}
+    .wrap{padding:12px;max-width:760px;margin:0 auto}
+    .card{background:#1f2937;border:1px solid #334155;border-radius:14px;padding:12px;margin-bottom:12px;box-shadow:0 6px 20px rgba(0,0,0,.22)}
+    .card h2{font-size:16px;margin:0 0 10px 0}
+    label{display:block;font-size:13px;color:#cbd5e1;margin:10px 0 5px;font-weight:bold}
+    input,textarea,select,button{width:100%;font-size:15px;border-radius:10px;border:1px solid #475569;padding:10px}
+    input,textarea,select{background:#fff;color:#111827}
+    textarea{min-height:90px;resize:vertical;text-transform:uppercase}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .btn{border:0;color:white;font-weight:bold;margin-top:10px;cursor:pointer}
+    .btn-green{background:#16a34a}
+    .btn-blue{background:#2563eb}
+    .btn-orange{background:#ea580c}
+    .btn-red{background:#991b1b}
+    .btn-gray{background:#475569}
+    .previewBox{width:100%;aspect-ratio:1/1;background:#000;border:1px solid #475569;border-radius:12px;overflow:hidden}
+    canvas{width:100%;height:100%;display:block;background:#000}
+    .status{font-size:13px;color:#bfdbfe;background:#0b1220;padding:10px;border-radius:10px;border:1px solid #334155;white-space:pre-wrap;min-height:45px}
+    progress{width:100%;height:18px;margin-top:10px}
+    .small{font-size:12px;color:#cbd5e1;line-height:1.35}
+</style>
+</head>
+<body>
+<header>
+    <h1>WV Criador de Vídeo Feed Instagram</h1>
+</header>
+
+<div class="wrap">
+    <section class="card">
+        <h2>1) Arquivos</h2>
+
+        <label>Escolha o vídeo</label>
+        <input id="videoFile" type="file" accept="video/*">
+
+        <label>Logo opcional</label>
+        <input id="logoFile" type="file" accept="image/*">
+
+        <label>Foto lateral (layout foto + vídeo)</label>
+        <input id="fotoFile" type="file" accept="image/*">
+
+        <label>Foto principal (layout só foto)</label>
+        <input id="fotoPrincipalFile" type="file" accept="image/*">
+
+        <div class="row">
+            <button class="btn btn-red" onclick="limparVideo()">🗑 Tirar vídeo</button>
+            <button class="btn btn-red" onclick="limparLogo()">🗑 Tirar logo</button>
+        </div>
+        <div class="row">
+            <button class="btn btn-red" onclick="limparFoto()">🗑 Tirar foto lateral</button>
+            <button class="btn btn-red" onclick="limparFotoPrincipal()">🗑 Tirar foto principal</button>
+        </div>
+
+        <div class="row">
+            <button class="btn btn-blue" onclick="salvarConfiguracao()">💾 Salvar configuração</button>
+            <button class="btn btn-orange" onclick="carregarConfiguracao()">📂 Carregar configuração</button>
+        </div>
+    </section>
+
+    <section class="card">
+        <h2>2) Legenda do topo</h2>
+        <label>Nome ao lado da logo</label>
+        <input id="perfil" value="@WV.CURIOSIDADES">
+
+        <label>Texto / manchete</label>
+        <textarea id="texto">ESCREVA SEU TEXTO AQUI</textarea>
+
+        <div class="row">
+            <div>
+                <label>Fundo do topo</label>
+                <input id="corFundo" type="color" value="#ffffff">
+            </div>
+            <div>
+                <label>Cor da letra</label>
+                <input id="corLetra" type="color" value="#111111">
+            </div>
+        </div>
+
+        <div class="row">
+            <div>
+                <label>Altura do topo</label>
+                <input id="alturaTopo" type="range" min="150" max="390" value="260">
+            </div>
+            <div>
+                <label>Tamanho máximo da letra</label>
+                <input id="tamFonte" type="range" min="40" max="160" value="110">
+            </div>
+        </div>
+    </section>
+
+    <section class="card">
+        <h2>3) Conteúdo</h2>
+
+        <label>Layout</label>
+        <select id="layoutConteudo">
+            <option value="video_inteiro">video_inteiro - vídeo normal embaixo</option>
+            <option value="foto_video">foto_video - foto esquerda + vídeo direita</option>
+            <option value="so_foto">so_foto - só a foto com legenda em cima</option>
+        </select>
+
+        <label>Ajuste do vídeo</label>
+        <select id="modoVideo">
+            <option value="contain">zoom_para_tras_encaixar - mostra inteiro</option>
+            <option value="cover_head">priorizar_cabeca - corta menos em cima</option>
+            <option value="cover_center">preencher_centro - corta no centro</option>
+            <option value="zoom_in">zoom_para_frente</option>
+        </select>
+
+        <label>FPS do vídeo</label>
+        <select id="fps">
+            <option value="24">24 FPS - recomendado</option>
+            <option value="30">30 FPS</option>
+        </select>
+
+        <p class="small">
+            Dica: no layout <b>so_foto</b>, use o botão laranja para baixar a imagem PNG pronta para o feed.
+            O botão verde continua gerando vídeo quando você quiser.
+        </p>
+    </section>
+
+    <section class="card">
+        <h2>4) Prévia</h2>
+        <div class="previewBox">
+            <canvas id="canvas" width="1080" height="1080"></canvas>
+        </div>
+        <button class="btn btn-blue" onclick="atualizarPreview()">Atualizar prévia</button>
+    </section>
+
+    <section class="card">
+        <h2>5) Gerar</h2>
+        <button class="btn btn-green" onclick="gerarVideo()">GERAR / BAIXAR VÍDEO 1080x1080</button>
+        <button class="btn btn-orange" onclick="baixarCapa()">BAIXAR FOTO / CAPA PNG</button>
+        <progress id="prog" value="0" max="100"></progress>
+        <div id="status" class="status"></div>
+        <video id="video" playsinline muted style="display:none"></video>
+    </section>
+</div>
+
+<script>
+const OUT_W = 1080;
+const OUT_H = 1080;
+
+let videoURL = null;
+let logoURL = null;
+let fotoURL = null;
+let fotoPrincipalURL = null;
+
+let logoImg = null;
+let fotoImg = null;
+let fotoPrincipalImg = null;
+let gravando = false;
+
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const video = document.getElementById("video");
+const statusEl = document.getElementById("status");
+const prog = document.getElementById("prog");
+
+function log(msg){
+    statusEl.textContent = msg;
+}
+function fileToURL(file){
+    return URL.createObjectURL(file);
+}
+function arquivoParaDataURL(file){
+    return new Promise((resolve,reject)=>{
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+document.getElementById("videoFile").addEventListener("change", e => {
+    const f = e.target.files[0];
+    if(!f) return;
+    if(videoURL) URL.revokeObjectURL(videoURL);
+    videoURL = fileToURL(f);
+    video.src = videoURL;
+    video.load();
+    video.onloadeddata = () => {
+        atualizarPreview();
+        log("Vídeo carregado. Prévia atualizada.");
+    };
+});
+
+document.getElementById("logoFile").addEventListener("change", e => {
+    const f = e.target.files[0];
+    if(!f) return;
+    if(logoURL && logoURL.startsWith("blob:")) URL.revokeObjectURL(logoURL);
+    logoURL = fileToURL(f);
+    logoImg = new Image();
+    logoImg.onload = atualizarPreview;
+    logoImg.src = logoURL;
+});
+
+document.getElementById("fotoFile").addEventListener("change", e => {
+    const f = e.target.files[0];
+    if(!f) return;
+    if(fotoURL) URL.revokeObjectURL(fotoURL);
+    fotoURL = fileToURL(f);
+    fotoImg = new Image();
+    fotoImg.onload = atualizarPreview;
+    fotoImg.src = fotoURL;
+});
+
+document.getElementById("fotoPrincipalFile").addEventListener("change", e => {
+    const f = e.target.files[0];
+    if(!f) return;
+    if(fotoPrincipalURL) URL.revokeObjectURL(fotoPrincipalURL);
+    fotoPrincipalURL = fileToURL(f);
+    fotoPrincipalImg = new Image();
+    fotoPrincipalImg.onload = atualizarPreview;
+    fotoPrincipalImg.src = fotoPrincipalURL;
+});
+
+["perfil","texto","corFundo","corLetra","alturaTopo","tamFonte","layoutConteudo","modoVideo","fps"].forEach(id=>{
+    document.getElementById(id).addEventListener("input", atualizarPreview);
+});
+
+document.getElementById("texto").addEventListener("input", e=>{
+    const s = e.target.selectionStart;
+    e.target.value = e.target.value.toUpperCase();
+    e.target.selectionStart = e.target.selectionEnd = s;
+});
+document.getElementById("perfil").addEventListener("input", e=>{
+    const s = e.target.selectionStart;
+    e.target.value = e.target.value.toUpperCase();
+    e.target.selectionStart = e.target.selectionEnd = s;
+});
+
+async function salvarConfiguracao(){
+    try{
+        const logoFile = document.getElementById("logoFile").files[0];
+        let logoData = localStorage.getItem("wv_logo_data") || "";
+        if(logoFile) logoData = await arquivoParaDataURL(logoFile);
+
+        const config = {
+            perfil: document.getElementById("perfil").value.toUpperCase(),
+            texto: document.getElementById("texto").value.toUpperCase(),
+            corFundo: document.getElementById("corFundo").value,
+            corLetra: document.getElementById("corLetra").value,
+            alturaTopo: document.getElementById("alturaTopo").value,
+            tamFonte: document.getElementById("tamFonte").value,
+            layoutConteudo: document.getElementById("layoutConteudo").value,
+            modoVideo: document.getElementById("modoVideo").value,
+            fps: document.getElementById("fps").value,
+            logoData: logoData
+        };
+        localStorage.setItem("wv_feed_config", JSON.stringify(config));
+        if(logoData) localStorage.setItem("wv_logo_data", logoData);
+        log("Configuração salva no navegador. A logo também foi salva para reutilizar.");
+        alert("Configuração salva com sucesso!");
+    }catch(e){
+        alert("Erro ao salvar configuração: " + e.message);
+    }
+}
+
+function carregarConfiguracao(){
+    try{
+        const raw = localStorage.getItem("wv_feed_config");
+        if(!raw){
+            alert("Nenhuma configuração salva ainda.");
+            return;
+        }
+        const config = JSON.parse(raw);
+        document.getElementById("perfil").value = (config.perfil || "@WV.CURIOSIDADES").toUpperCase();
+        document.getElementById("texto").value = (config.texto || "ESCREVA SEU TEXTO AQUI").toUpperCase();
+        document.getElementById("corFundo").value = config.corFundo || "#ffffff";
+        document.getElementById("corLetra").value = config.corLetra || "#111111";
+        document.getElementById("alturaTopo").value = config.alturaTopo || "260";
+        document.getElementById("tamFonte").value = config.tamFonte || "110";
+        document.getElementById("layoutConteudo").value = config.layoutConteudo || "video_inteiro";
+        document.getElementById("modoVideo").value = config.modoVideo || "contain";
+        document.getElementById("fps").value = config.fps || "24";
+
+        const logoData = config.logoData || localStorage.getItem("wv_logo_data") || "";
+        if(logoData){
+            logoURL = logoData;
+            logoImg = new Image();
+            logoImg.onload = atualizarPreview;
+            logoImg.src = logoData;
+        }
+        atualizarPreview();
+        log("Configuração carregada. Logo reaproveitada se estava salva.");
+    }catch(e){
+        alert("Erro ao carregar configuração: " + e.message);
+    }
+}
+
+function limparVideo(){
+    document.getElementById("videoFile").value = "";
+    video.removeAttribute("src");
+    video.load();
+    if(videoURL) URL.revokeObjectURL(videoURL);
+    videoURL = null;
+    atualizarPreview();
+    log("Vídeo removido.");
+}
+function limparLogo(){
+    document.getElementById("logoFile").value = "";
+    if(logoURL && logoURL.startsWith("blob:")) URL.revokeObjectURL(logoURL);
+    logoURL = null;
+    logoImg = null;
+    atualizarPreview();
+    log("Logo removida.");
+}
+function limparFoto(){
+    document.getElementById("fotoFile").value = "";
+    if(fotoURL) URL.revokeObjectURL(fotoURL);
+    fotoURL = null;
+    fotoImg = null;
+    atualizarPreview();
+    log("Foto lateral removida.");
+}
+function limparFotoPrincipal(){
+    document.getElementById("fotoPrincipalFile").value = "";
+    if(fotoPrincipalURL) URL.revokeObjectURL(fotoPrincipalURL);
+    fotoPrincipalURL = null;
+    fotoPrincipalImg = null;
+    atualizarPreview();
+    log("Foto principal removida.");
+}
+
+function drawRoundImage(img, x, y, size){
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x + size/2, y + size/2, size/2, 0, Math.PI*2);
+    ctx.closePath();
+    ctx.clip();
+    ctx.drawImage(img, x, y, size, size);
+    ctx.restore();
+}
+function drawDefaultLogo(x,y,size){
+    ctx.save();
+    ctx.fillStyle = "#0f172a";
+    ctx.beginPath();
+    ctx.arc(x+size/2, y+size/2, size/2, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = "#ffffff";
+    ctx.font = `bold ${Math.floor(size*0.34)}px Arial`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("WV", x+size/2, y+size/2);
+    ctx.restore();
+}
+function wrapText(text, maxWidth, font){
+    ctx.font = font;
+    const words = (text || "").split(/\s+/);
+    const lines = [];
+    let line = "";
+    for(const word of words){
+        const test = line ? line + " " + word : word;
+        if(ctx.measureText(test).width <= maxWidth){
+            line = test;
+        }else{
+            if(line) lines.push(line);
+            line = word;
+        }
+    }
+    if(line) lines.push(line);
+    return lines.length ? lines : [""];
+}
+function calcularFonteAuto(text, fontFamily, maxSize, maxWidth, maxHeight){
+    let best = {size:14, lines:[""], lineHeight:18};
+    for(let size=14; size<=maxSize; size++){
+        const font = `${size}px ${fontFamily}`;
+        const lines = wrapText(text, maxWidth, font);
+        const lineHeight = Math.max(18, Math.floor(size*1.16));
+        const height = lines.length * lineHeight;
+        let width = 0;
+        ctx.font = font;
+        for(const l of lines) width = Math.max(width, ctx.measureText(l).width);
+        if(height <= maxHeight && width <= maxWidth){
+            best = {size, lines, lineHeight};
+        }
+    }
+    return best;
+}
+
+function drawHeader(){
+    const headerH = parseInt(document.getElementById("alturaTopo").value);
+    const bg = document.getElementById("corFundo").value;
+    const fg = document.getElementById("corLetra").value;
+    const perfil = (document.getElementById("perfil").value || "@WV.CURIOSIDADES").toUpperCase();
+    const texto = (document.getElementById("texto").value || "").toUpperCase();
+    const maxFont = parseInt(document.getElementById("tamFonte").value);
+
+    ctx.fillStyle = bg;
+    ctx.fillRect(0,0,OUT_W,headerH);
+
+    const logoSize = Math.max(58, Math.min(94, Math.floor(headerH*0.34)));
+    const xLogo = 38;
+    const yLogo = Math.max(18, Math.floor(headerH*0.12));
+
+    if(logoImg){
+        drawRoundImage(logoImg, xLogo, yLogo, logoSize);
+    }else{
+        drawDefaultLogo(xLogo, yLogo, logoSize);
+    }
+
+    const xText = xLogo + logoSize + 20;
+    const yName = yLogo + 2;
+
+    ctx.fillStyle = fg;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.font = "bold 32px Arial";
+    ctx.fillText(perfil, xText, yName);
+
+    const yLegenda = yName + 46;
+    const largura = OUT_W - xText - 38;
+    const altura = Math.max(20, headerH - yLegenda - 18);
+    const calc = calcularFonteAuto(texto, "Arial", maxFont, largura, altura);
+
+    ctx.font = `${calc.size}px Arial`;
+    ctx.fillStyle = fg;
+    let y = yLegenda;
+    for(const line of calc.lines){
+        if(y + calc.lineHeight > headerH - 4) break;
+        ctx.fillText(line, xText, y);
+        y += calc.lineHeight;
+    }
+
+    return headerH;
+}
+
+function drawMidiaContain(img, x, y, w, h, bg="#000"){
+    ctx.fillStyle = bg;
+    ctx.fillRect(x, y, w, h);
+    const iw = img.naturalWidth || img.videoWidth || 1;
+    const ih = img.naturalHeight || img.videoHeight || 1;
+    const scale = Math.min(w/iw, h/ih);
+    const dw = iw * scale;
+    const dh = ih * scale;
+    const dx = x + (w - dw)/2;
+    const dy = y + (h - dh)/2;
+    ctx.drawImage(img, dx, dy, dw, dh);
+}
+function drawMidiaCover(img, x, y, w, h, mode){
+    const iw = img.naturalWidth || img.videoWidth || 1;
+    const ih = img.naturalHeight || img.videoHeight || 1;
+    let scale = Math.max(w/iw, h/ih);
+    if(mode === "zoom_in") scale *= 1.15;
+    const dw = iw * scale;
+    const dh = ih * scale;
+    const dx = x + (w - dw)/2;
+    let dy;
+    if(mode === "cover_head") dy = y + (h - dh)*0.18;
+    else dy = y + (h - dh)/2;
+    ctx.drawImage(img, dx, dy, dw, dh);
+}
+
+function drawConteudo(headerH){
+    const layout = document.getElementById("layoutConteudo").value;
+    const mode = document.getElementById("modoVideo").value;
+    const areaX = 0;
+    const areaY = headerH;
+    const areaW = OUT_W;
+    const areaH = OUT_H - headerH;
+
+    ctx.fillStyle = "#000";
+    ctx.fillRect(areaX, areaY, areaW, areaH);
+
+    if(layout === "so_foto"){
+        if(fotoPrincipalImg){
+            drawMidiaContain(fotoPrincipalImg, areaX, areaY, areaW, areaH, "#ffffff");
+        }else{
+            ctx.fillStyle="#777";
+            ctx.fillRect(areaX, areaY, areaW, areaH);
+            ctx.fillStyle="#fff";
+            ctx.font="bold 58px Arial";
+            ctx.textAlign="center";
+            ctx.textBaseline="middle";
+            ctx.fillText("FOTO PRINCIPAL", OUT_W/2, areaY + areaH/2);
+        }
+        return;
+    }
+
+    if(layout === "foto_video"){
+        const sep = 8;
+        const leftW = Math.floor((areaW - sep)/2);
+        const rightW = areaW - leftW - sep;
+
+        if(fotoImg){
+            drawMidiaContain(fotoImg, areaX, areaY, leftW, areaH, "#ffffff");
+        }else{
+            ctx.fillStyle="#777";
+            ctx.fillRect(areaX, areaY, leftW, areaH);
+            ctx.fillStyle="#fff";
+            ctx.font="bold 48px Arial";
+            ctx.textAlign="center";
+            ctx.textBaseline="middle";
+            ctx.fillText("FOTO", areaX + leftW/2, areaY + areaH/2);
+        }
+
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(areaX + leftW, areaY, sep, areaH);
+
+        const vx = areaX + leftW + sep;
+        if(!videoURL || video.readyState < 2){
+            ctx.fillStyle="#525252";
+            ctx.fillRect(vx, areaY, rightW, areaH);
+            ctx.fillStyle="#fff";
+            ctx.font="bold 44px Arial";
+            ctx.textAlign="center";
+            ctx.textBaseline="middle";
+            ctx.fillText("VÍDEO", vx + rightW/2, areaY + areaH/2);
+            return;
+        }
+        if(mode === "contain") drawMidiaContain(video, vx, areaY, rightW, areaH, "#000000");
+        else drawMidiaCover(video, vx, areaY, rightW, areaH, mode);
+        return;
+    }
+
+    if(!videoURL || video.readyState < 2){
+        ctx.fillStyle="#525252";
+        ctx.fillRect(areaX, areaY, areaW, areaH);
+        ctx.fillStyle="#fff";
+        ctx.font="bold 70px Arial";
+        ctx.textAlign="center";
+        ctx.textBaseline="middle";
+        ctx.fillText("VÍDEO", OUT_W/2, areaY + areaH/2);
+        return;
+    }
+    if(mode === "contain") drawMidiaContain(video, areaX, areaY, areaW, areaH, "#000000");
+    else drawMidiaCover(video, areaX, areaY, areaW, areaH, mode);
+}
+
+function desenharFrame(){
+    ctx.clearRect(0,0,OUT_W,OUT_H);
+    const headerH = drawHeader();
+    drawConteudo(headerH);
+}
+function atualizarPreview(){
+    desenharFrame();
+}
+
+async function gerarVideo(){
+    const layout = document.getElementById("layoutConteudo").value;
+    if(layout !== "so_foto" && !videoURL){
+        alert("Escolha um vídeo primeiro.");
+        return;
+    }
+
+    gravando = true;
+    prog.value = 0;
+    log("Preparando gravação...");
+
+    const fps = parseInt(document.getElementById("fps").value || "24");
+    const stream = canvas.captureStream(fps);
+
+    const layoutSoFoto = (layout === "so_foto");
+    if(!layoutSoFoto){
+        try{
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const source = audioCtx.createMediaElementSource(video);
+            const dest = audioCtx.createMediaStreamDestination();
+            source.connect(dest);
+            source.connect(audioCtx.destination);
+            dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+        }catch(e){
+            console.warn("Áudio não capturado:", e);
+        }
+    }
+
+    let mime = "";
+    if(MediaRecorder.isTypeSupported("video/mp4;codecs=avc1.42E01E,mp4a.40.2")) mime = "video/mp4;codecs=avc1.42E01E,mp4a.40.2";
+    else if(MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")) mime = "video/webm;codecs=vp9,opus";
+    else if(MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")) mime = "video/webm;codecs=vp8,opus";
+    else mime = "video/webm";
+
+    const chunks = [];
+    const recorder = new MediaRecorder(stream, {mimeType:mime, videoBitsPerSecond:2500000});
+
+    recorder.ondataavailable = e => {
+        if(e.data && e.data.size) chunks.push(e.data);
+    };
+
+    recorder.onstop = () => {
+        const blob = new Blob(chunks, {type:mime});
+        const ext = mime.includes("mp4") ? "mp4" : "webm";
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        const stamp = new Date().toISOString().replace(/[:.]/g,"-").slice(0,19);
+        a.href = url;
+        a.download = `WV_FEED_INSTAGRAM_${stamp}.${ext}`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        prog.value = 100;
+        log(`Concluído. Arquivo baixado em ${ext.toUpperCase()}.`);
+        gravando = false;
+    };
+
+    recorder.start(1000);
+
+    if(layoutSoFoto){
+        const dur = 5.0;
+        const start = performance.now();
+        function loopFoto(now){
+            if(!gravando) return;
+            desenharFrame();
+            const elapsed = (now - start) / 1000;
+            const pct = Math.max(0, Math.min(100, Math.floor((elapsed / dur) * 100)));
+            prog.value = pct;
+            log(`Gerando vídeo da foto... ${pct}%`);
+            if(elapsed >= dur){
+                recorder.stop();
+                gravando = false;
+                return;
+            }
+            requestAnimationFrame(loopFoto);
+        }
+        requestAnimationFrame(loopFoto);
+        return;
+    }
+
+    video.currentTime = 0;
+    video.muted = false;
+    await new Promise(resolve => {
+        video.onseeked = resolve;
+        video.currentTime = 0;
+    }).catch(()=>{});
+
+    await video.play();
+
+    const dur = video.duration || 1;
+    function loopVideo(){
+        if(!gravando) return;
+        desenharFrame();
+        const pct = Math.max(0, Math.min(100, Math.floor((video.currentTime / dur) * 100)));
+        prog.value = pct;
+        log(`Gerando vídeo... ${pct}%`);
+        if(video.ended || video.currentTime >= dur){
+            recorder.stop();
+            video.pause();
+            gravando = false;
+            return;
+        }
+        requestAnimationFrame(loopVideo);
+    }
+    loopVideo();
+}
+
+function baixarCapa(){
+    atualizarPreview();
+    const a = document.createElement("a");
+    const stamp = new Date().toISOString().replace(/[:.]/g,"-").slice(0,19);
+    a.download = `WV_CAPA_FEED_${stamp}.png`;
+    a.href = canvas.toDataURL("image/png");
+    a.click();
+}
+
+atualizarPreview();
+</script>
+</body>
+</html>
